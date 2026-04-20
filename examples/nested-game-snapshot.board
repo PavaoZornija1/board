@@ -1,0 +1,6 @@
+# Inner `game { }` snapshots board, cells, registers, and PGN headers; restores after normal exit.
+{let a 0}
+game {
+  {let a 1}
+}
+{sayreg a}

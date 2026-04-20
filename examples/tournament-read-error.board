@@ -1,0 +1,5 @@
+tournament all {
+  game {
+    {read e4}
+  }
+}

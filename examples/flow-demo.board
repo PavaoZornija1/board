@@ -1,0 +1,8 @@
+# while + registers (no chess moves in loop)
+game {
+  {let n 3}
+  while reg n > 0 {
+    {dec n}
+  }
+  {sayreg n}
+}

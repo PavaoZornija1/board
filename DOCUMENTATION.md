@@ -32,19 +32,21 @@ After **preprocessing** (Section 4), the parser decides between two modes.
 
 ### 3.1 Implicit single game
 
-If the first meaningful content does **not** begin with the keywords `game` or `match` (case-insensitive), the **entire remainder** of the file (after preprocessing) is treated as **one game body** — the same content that would appear inside `game { … }`.
+If the first meaningful content does **not** begin with the keywords `game`, `match`, or `tournament` (case-insensitive), the **entire remainder** of the file (after preprocessing) is treated as **one game body** — the same content that would appear inside `game { … }`.
 
 Use this for short scripts that are only movetext and directives.
 
-**Restriction:** You cannot mix “bare movetext at the top” with later top-level `game { … }` or `match { … }` in the same file. If the file starts with `e4`, everything is implicit; a `game` block later in the file is **not** parsed as a separate construct.
+**Restriction:** You cannot mix “bare movetext at the top” with later top-level `game { … }`, `match { … }`, or `tournament … { … }` in the same file. If the file starts with `e4`, everything is implicit; a `game` block later in the file is **not** parsed as a separate construct.
 
 ### 3.2 Structured documents
 
-If the file begins with `game` or `match`, the parser consumes a sequence of:
+If the file begins with `game`, `match`, or `tournament`, the parser consumes a sequence of:
 
 - **`game` optional-name `{` … `}`** — One game. `name` is an identifier (`[a-zA-Z_][a-zA-Z0-9_]*`) and is currently **not** used by the interpreter (reserved for future use, documentation, or tooling).
 
-- **`match` positive-integer `{` … `}`** — A match containing exactly **N** nested **`game { … }`** blocks. The integer **N** must equal the number of `game` blocks inside the braces. Whitespace and `#` comments (Section 4) may appear between blocks.
+- **`match` positive-integer `{` … `}`** — A match containing exactly **N** nested **`game { … }`** blocks. The integer **N** must equal the number of `game` blocks inside the braces. Whitespace and `#` comments (Section 4) may appear between blocks. Games run **one after another** in file order; each nested game gets a **fresh** board, memory plane, and registers (same as a standalone `game`). If any nested game ends with a **`{return …}`** numeric value, those values are **summed** and one line is printed with the sum (if none return, nothing extra is printed for the match).
+
+- **`tournament` `all` `{` … `}`** or **`tournament` `race` `{` … `}`** — A tournament contains one or more nested **`game { … }`** blocks. Each nested game runs in a **separate worker thread** with a **fresh** board, memory, and registers (**isolated** from the main thread and from sibling branches). **`{read}` is not allowed** inside tournament games (stdin is undefined in workers). **`tournament all`:** wait until every branch finishes; print buffered `say` / `fen` / `pgn` / `sayreg` / trace lines **in game order** (subject to `--quiet`); then if any branch used **`{return …}`**, print **one line** with the **sum** of those values (same aggregation rule as `match`). **`tournament race`:** take the **first** branch to finish; terminate the others; print that branch’s buffered lines (unless `--quiet`); if it returned, print that numeric value **once**. If a worker throws, the error is surfaced on the main thread.
 
 Multiple top-level `game` blocks may appear in sequence without a `match` wrapper; they run one after another in file order.
 
@@ -124,6 +126,25 @@ is interpreted as **from square**, **to square**, optional **promotion** piece (
 
 Every move must be **legal** in the current position for the side to move. Otherwise chess.js throws and the program terminates with that error.
 
+### 6.4 Move suffixes and NAGs (`!` `?` `$n`)
+
+A **move token** may end with:
+
+- **PGN numeric annotation glyph** — `$` followed by digits (for example `Qxf7$3`), stripped before the move is sent to chess.js.
+- **Move-quality suffixes** — `!!`, `??`, `!?`, `?!`, `!`, or `?` (longer pairs are recognized before single `!` / `?`). These are stripped after the NAG, then trailing **`+` / `#`** are stripped for the engine (same rule as Section 6.2).
+
+After the move is applied, **suffixes and NAGs** may run checks or log lines (never `--quiet` for log lines tied to annotations):
+
+| Marker | Behaviour (after the move) |
+|--------|----------------------------|
+| `!!` | **Assert** the side to move is in **check** (tactical shot). |
+| `??`, `?`, `!`, `!?`, `?!` | Log a one-line `[annotation] …` marker (no assert). |
+| `$3`, `$103`, `$187` | Same as **`!!`** (brilliant / forced check). |
+| `$4`, `$104`, `$185` | Log a mistake-style line. |
+| `$2`, `$6`, `$44`, `$132` | Log a dubious / unclear-style line. |
+
+Other **`$n`** values are ignored for now.
+
 ---
 
 ## 7. Directives
@@ -155,7 +176,8 @@ Tracing applies to moves executed in **included** snippets as well (same game co
 - Returns an integer printed by the host (Section 9):
   - If **checkmate**: `+1` if White won, `-1` if Black won (side to move is the mated side).
   - If the game is **over** but not checkmate (draw, stalemate, fifty-move, and so on): `0`.
-- If the game is **not** over yet, this directive **throws** (it does not return a partial “outcome”).
+  - If **`{resign}`** was played: the **side to move at resign time** loses — same numeric convention as checkmate for that side (`-1` if White resigned, `+1` if Black resigned).
+- If the game is **not** over yet and **no** resign was recorded, this directive **throws** (it does not return a partial “outcome”).
 
 ### 7.5 `{return material}`
 
@@ -176,7 +198,7 @@ Tracing applies to moves executed in **included** snippets as well (same game co
 
 - **Inlines** another file: its contents are preprocessed and tokenized as a **game body** only, then executed **as if** its tokens were inserted at this point (same chess position, same memory cells, same trace flag).
 - The path is **relative to `baseDir`**, which is the directory containing the **file that defined the current `baseDir`**. Initially that is the directory of the **entry** `.board` file. When a file is included, `baseDir` temporarily becomes that file’s directory for nested includes, then is restored.
-- The included file **must not** be structured as a top-level `game` or `match` document: after preprocessing, if the trimmed text starts with `game` or `match`, the interpreter throws. Snippets should be plain movetext, `FEN`, directives, and further includes.
+- The included file **must not** be structured as a top-level `game`, `match`, or `tournament` document: after preprocessing, if the trimmed text starts with `game`, `match`, or `tournament`, the interpreter throws. Snippets should be plain movetext, `FEN`, directives, and further includes.
 - **Circular includes** (including a file that is already on the include stack) throw.
 
 Paths may be written in directives as:
@@ -189,6 +211,12 @@ The line form `include "…"` requires quotes as in Section 5.1.
 ### 7.9 `library` (summary)
 
 Line or brace form loads `libraries/<name>.board` from the package root; see **Section 11.5**.
+
+### 7.11 `{resign}` and `{variant …}`
+
+- **`{resign}`** — The **side to move** resigns. The position is treated as **terminal** for **`gameover`**, **`{return outcome}`**, and **`{assert gameover}`**, without altering piece placement. Illegal if the game is already over or a resign was already recorded.
+- **`{variant standard}`** — Clears the PGN **`Variant`** header (if present) and marks the profile as standard chess.
+- **`{variant chess960}`** / **`{variant fischer960}`** — Sets PGN header **`Variant`** to **`Chess960`**. You must still supply a legal **Chess960** start with **`FEN "…"`** when you need a non-standard array; chess.js remains the move legality engine.
 
 ---
 
@@ -240,7 +268,7 @@ Memory cells are **not** tied to piece identity in the chess layer: moving a pie
 
 ---
 
-## 9. Return values and `match` aggregation
+## 9. Return values, `match`, and `tournament` aggregation
 
 ### 9.1 Single game (`implicit` or `game { … }`)
 
@@ -256,20 +284,51 @@ For every inner game that **did** execute `{return …}`, its value is added to 
 
 If **no** inner game used `{return …}`, nothing is printed for the match aggregate.
 
+### 9.3 `tournament all { … }` and `tournament race { … }`
+
+See **Section 3.2** for syntax. Branches run in **worker threads**; **`{read}`** is rejected there. **`tournament all`** uses the same **sum-of-returns** rule as **`match`**, after replaying buffered branch output in game order (unless `--quiet`). **`tournament race`** prints at most one branch’s return value (the first branch to finish).
+
 ---
 
 ## 10. Execution order (summary)
 
 Within one game (including inlined bodies):
 
-1. Tokens are processed strictly in order.
+1. **Statements** are processed strictly in order (movetext lines, `FEN`, tags, directives, and control structures below).
 2. `FEN` loads replace the chess position (once).
-3. Directives run immediately when seen (includes recurse; `{return}` stops the game). **PGN roster tags** (`[Event "…"]`, and so on) apply `setHeader` when their token is processed.
-4. Move tokens update chess, then memory, then optional trace output.
+3. Directives run immediately when seen (includes recurse; `{return}` stops the game). **PGN roster tags** (`[Event "…"]`, and so on) apply `setHeader` when their line is processed.
+4. **Move** statements update chess, then memory, then optional trace output, then optional **annotation** checks (Section 6.4).
 
 ---
 
 ## 11. Extended directives
+
+### 11.0 Control flow (`if`, `while`, `for`, `break`, `continue`, nested `game`, nested `tournament`)
+
+Control keywords must start an **identifier-boundary** word (`if` does not match `iffy`). The condition for `if` / `while` is an **expression** (see below) ending at the first `{`. Expressions may span multiple lines before that `{`.
+
+| Form | Meaning |
+|------|---------|
+| `if <expr> { … }` | If **expr** is non-zero (truthy), run the **then** block. |
+| `if <expr> { … } else { … }` | Optional **else** block (same `else {` syntax). |
+| `while <expr> { … }` | Repeat **body** while **expr** is truthy. Hard cap **100 000** iterations per `while` (then an error). |
+| `for NAME from A to B { … }` | **A** and **B** are integers; **NAME** is a register set to each value from **A** through **B** inclusive on each iteration. If **A > B**, the body never runs. Same **100 000** iteration cap. |
+| `break` | Exit the innermost enclosing `while` or `for`. Using `break` outside a loop is an error. |
+| `continue` | Skip to the next iteration of the innermost `while` or `for`. Outside a loop, an error. |
+| `game` optional-name `{ … }` | **Nested game (call-by-snapshot):** saves FEN, memory cells, registers, PGN headers, trace flags, resign flag, and variant profile; runs the inner body on that **copy** of state. On **normal** exit (no `{return …}`), **restores** the outer snapshot and continues. A **`{return …}`** inside the nested block **propagates** (same as **`include`**) and ends all enclosing games without restoring. **`break` / `continue`** must target a loop **inside** this nested block. |
+| `tournament all { … }` / `tournament race { … }` | Same semantics as **top-level** tournament (Section 3.2): worker threads, isolated state, **`{read}`** forbidden in branches. May appear inside a **`game`** body (including inside a worker). |
+
+**Expressions** (numbers, comparisons, `and` / `or` / `not`, parentheses):
+
+- Literals: integers, `true` / `false` (1 / 0).
+- `reg NAME` — register value (missing name → 0).
+- `cell SQ` / memory at square (e.g. `cell e4`).
+- `material` — White minus Black material count (same weights as `{return material}`).
+- `check`, `notcheck`, `gameover`, `notgameover` ( **`gameover` / `notgameover`** account for **`{resign}`** as well as chess.js terminal positions).
+- `side white` / `side black` / `side w` / `side b` — 1 if that side is to move, else 0.
+- Operators (with spaces as needed): `==`, `!=`, `<`, `>`, `<=`, `>=`. Comparisons bind tighter than `and` / `or`. Unary `not` binds tightest among booleans.
+
+**Nesting:** `if` / `while` / `for` bodies may contain moves, directives, nested **`game`** / **`tournament`**, and further control flow. **`include` / `library`** splice a parsed statement list; `break` / `continue` inside a snippet affect the **enclosing** loop in the outer game.
 
 ### 11.1 Memory and stdin
 
@@ -299,7 +358,7 @@ All failures throw and stop the program.
 |-----------|-------------------|
 | `{assert check}` | Side to move is in check. |
 | `{assert notcheck}` | Side to move is **not** in check. |
-| `{assert gameover}` | Position is game-over (mate, stalemate, draw rule, and so on). |
+| `{assert gameover}` | Position is game-over (mate, stalemate, draw rule, and so on) **or** a **`{resign}`** has been played. |
 | `{assert side white}` / `{assert side black}` | Side to move is White / Black (`w` / `b` aliases allowed). |
 
 ### 11.4 PGN export
@@ -316,7 +375,7 @@ All failures throw and stop the program.
 
 ### 11.6 Quiet mode
 
-When **`--quiet`** is passed to the CLI (or you wire `quiet: true` in `RunOptions`), these produce **no** stdout: `{say}`, `{fen}`, `{pgn}`, `{trace}` lines, `{sayreg}`. **`{return …}`** values and **`match`** aggregate sums **still print** (treated as primary program output).
+When **`--quiet`** is passed to the CLI (or you wire `quiet: true` in `RunOptions`), these produce **no** stdout: `{say}`, `{fen}`, `{pgn}`, `{trace}` lines, `{sayreg}`. **`{return …}`** values and **`match` / `tournament`** aggregate lines **still print** (treated as primary program output).
 
 ### 11.7 Includes and preprocessing
 
@@ -375,7 +434,7 @@ A one-page operational semantics (configurations and transitions) lives in [SPEC
 ```ts
 import { runProgram, type RunOptions } from "./src/runtime.ts";
 
-runProgram(sourceString, {
+await runProgram(sourceString, {
   sourcePath: "/absolute/path/to/entry.board",
   quiet: false,
   dryRun: false,
@@ -392,7 +451,7 @@ runProgram(sourceString, {
 
 - **Runtime:** Node.js with `--experimental-strip-types` on `.ts` sources (no emit step in `npm run run`).
 - **Chess:** [chess.js](https://www.npmjs.com/package/chess.js) v1.x.
-- **Errors:** Invalid SAN/UCI, illegal moves, unknown directives, bad FEN, include violations, assert failures, and brace parse errors surface as JavaScript `Error` messages with stack traces.
+- **Errors:** Invalid SAN/UCI, illegal moves, unknown directives, bad FEN, include violations, assert failures, brace parse errors, annotation rule failures, and worker failures in **`tournament`** surface as JavaScript `Error` messages. The CLI prints the **message** to stderr and exits with code **1** (no stack trace by default).
 
 ---
 
@@ -404,6 +463,14 @@ runProgram(sourceString, {
 | `examples/opening.board` | Named `game`, `{say …}`. |
 | `examples/match.board` | `match` with two games, no returns. |
 | `examples/match-return.board` | `{return outcome}` and `{return material}` summed. |
+| `examples/tournament-demo.board` | `tournament all` — parallel games, summed `{return reg …}`. |
+| `examples/tournament-race-test.board` | `tournament race` — first branch’s return. |
+| `examples/nested-game-snapshot.board` | Nested **`game`** restores registers after inner body. |
+| `examples/nested-game-return.board` | Nested **`game`** + propagated **`{return}`**. |
+| `examples/resign-outcome.board` | **`{resign}`** then **`{return outcome}`**. |
+| `examples/move-annotations.board` | SAN **`$n`** / check annotation. |
+| `examples/variant-chess960.board` | **`{variant chess960}`** and **`{pgn}`**. |
+| `examples/nested-tournament.board` | **`tournament`** inside a **`game`** body. |
 | `examples/from-fen.board` | `FEN "…"` line. |
 | `examples/trace.board` | `{trace fen}` / `{trace off}`. |
 | `examples/fen-directive.board` | `{fen}`. |
@@ -413,6 +480,7 @@ runProgram(sourceString, {
 | `examples/gallery/counter.board` | `let` / `inc` / `sayreg`. |
 | `examples/gallery/tags.board` | PGN tags + `{pgn}`. |
 | `examples/read-demo.board` | `{read e4}` — pipe one integer line on stdin, then `say e4`. |
+| `examples/flow-demo.board` | `while` loop with registers only. |
 
 See also `examples/gallery/README.md` and `examples/puzzles/README.md`.
 

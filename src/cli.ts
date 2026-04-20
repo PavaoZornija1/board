@@ -19,7 +19,7 @@ Usage:
 
 Options:
   -h, --help       Show this help
-  -q, --quiet      Suppress say, fen, trace, pgn, sayreg (returns / match sums still print)
+  -q, --quiet      Suppress say, fen, trace, pgn, sayreg (returns / match / tournament sums still print)
   --dry-run        Parse and verify include/library files exist; no chess execution
   --print-ast      Print JSON document AST (exits after run unless combined with execution)
   --trace          Start each game with trace (fen) from the first move
@@ -80,4 +80,10 @@ if (argv.length === 0) {
 }
 const { path, opts } = parseArgs(argv);
 const source = readFileSync(path, "utf8");
-runProgram(source, opts);
+try {
+  await runProgram(source, opts);
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(message);
+  process.exit(1);
+}

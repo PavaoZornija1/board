@@ -10,10 +10,13 @@ Think of it as: *chess legality is the control structure; the score sheet is the
 
 - **SAN or UCI moves** — Standard algebraic notation (what humans write on scoresheets) or engine-style coordinates.
 - **Full chess rules** — Illegal moves are hard errors.
-- **`game { }` / `match N { }`** — Structure programs as one or more games; matches can aggregate numeric return values.
-- **Directives** — I/O (`say`, `fen`, `pgn`, `read`), tracing, **`return`**, **`assert`**, memory **`set`**, **named registers**, **`include`**, and **`library`** (loads from `libraries/*.board`).
+- **`game { }` / `match N { }` / `tournament all|race { }`** — One game, a sequential match, or **parallel** games (each branch runs in a **worker thread** with isolated board and memory; `{read}` is disallowed there).
+- **Directives** — I/O (`say`, `fen`, `pgn`, `read`), tracing, **`return`**, **`resign`**, **`variant`**, **`assert`**, memory **`set`**, **named registers**, **`include`**, and **`library`** (loads from `libraries/*.board`).
+- **Nested `game` / `tournament`** — Snapshot-and-restore nested **`game { }`**; **`tournament all|race`** inside a body uses the same worker model as at top level.
+- **Move annotations** — Suffixes **`!!` `??` `!?` `?!` `!` `?`** and PGN **`$n`** NAGs (subset) for asserts / log lines after a legal move.
 - **PGN tags** — Lines like `[Event "…"]` feed headers for `{pgn}` export.
 - **Custom start** — `FEN "…"` once per game.
+- **Control flow** — `if` / `else`, `while`, `for … from … to`, `break`, `continue`, plus nested **`game`** / **`tournament`**, with boolean / integer expressions (`reg`, `cell`, `material`, `check`, `side`, `gameover`, comparisons, `and` / `or` / `not`).
 - **CLI** — `--quiet`, `--dry-run`, `--print-ast`, `--trace` (flags may appear before or after the file path).
 - **Tooling** — `npm test`, global `board-lang` bin, VS Code grammar under `editor/boardlang-syntax/`, gallery and puzzle examples.
 

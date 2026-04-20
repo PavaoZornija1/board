@@ -1,12 +1,16 @@
 /**
- * Surface syntax: `game` / `match`, SAN movetext, `{directives}`, optional `FEN "..."`.
+ * Surface syntax: `game` / `match` / `tournament`, SAN movetext, `{directives}`, optional `FEN "..."`.
  */
+
+import { parseMoveToken } from "./move-decor.ts";
 
 export type GameAst = { kind: "game"; name?: string; body: string };
 
 export type MatchAst = { kind: "match"; count: number; games: GameAst[] };
 
-export type TopLevel = GameAst | MatchAst | { kind: "implicit"; body: string };
+export type TournamentAst = { kind: "tournament"; mode: "all" | "race"; games: GameAst[] };
+
+export type TopLevel = GameAst | MatchAst | TournamentAst | { kind: "implicit"; body: string };
 
 export type BodyToken =
   | { kind: "fen"; fen: string }
@@ -38,7 +42,7 @@ export function preprocessSource(source: string): string {
     .join("\n");
 }
 
-function skipWsAndComments(s: string, i: number): number {
+export function skipWsAndComments(s: string, i: number): number {
   const len = s.length;
   while (i < len) {
     const c = s[i];
@@ -55,7 +59,8 @@ function skipWsAndComments(s: string, i: number): number {
   return i;
 }
 
-function readBalancedBlock(s: string, openPos: number): { inner: string; closePos: number } {
+/** Read `{` … `}` with nested `{` `}` balanced. `openPos` must point at `{`. */
+export function readBalancedBlock(s: string, openPos: number): { inner: string; closePos: number } {
   if (s[openPos] !== "{") throw new Error(`Expected { at ${openPos}`);
   let depth = 0;
   for (let i = openPos; i < s.length; i++) {
@@ -85,6 +90,21 @@ function readInteger(s: string, i: number): { n: number; next: number } | null {
   const start = j;
   while (j < len && /[0-9]/.test(s[j])) j++;
   return { n: Number(s.slice(start, j)), next: j };
+}
+
+/** Parse a sequence of `game { … }` blocks (used by `match`, `tournament`, and nested tournament statements). */
+export function parseGameSequenceInner(inner: string): GameAst[] {
+  const games: GameAst[] = [];
+  let k = 0;
+  const innerLen = inner.length;
+  while (k < innerLen) {
+    k = skipWsAndComments(inner, k);
+    if (k >= innerLen) break;
+    const g = parseGameBlock(inner, k);
+    games.push(g.game);
+    k = skipWsAndComments(inner, g.next);
+  }
+  return games;
 }
 
 function parseGameBlock(s: string, i: number): { game: GameAst; next: number } {
@@ -117,20 +137,37 @@ function parseMatchBlock(s: string, i: number): { match: MatchAst; next: number 
   j = skipWsAndComments(s, num.next);
   if (s[j] !== "{") throw new Error(`Expected { after match count`);
   const { inner, closePos } = readBalancedBlock(s, j);
-  const games: GameAst[] = [];
-  let k = 0;
-  const innerLen = inner.length;
-  while (k < innerLen) {
-    k = skipWsAndComments(inner, k);
-    if (k >= innerLen) break;
-    const g = parseGameBlock(inner, k);
-    games.push(g.game);
-    k = skipWsAndComments(inner, g.next);
-  }
+  const games = parseGameSequenceInner(inner);
   if (games.length !== num.n) {
     throw new Error(`match ${num.n} requires exactly ${num.n} game blocks, got ${games.length}`);
   }
   return { match: { kind: "match", count: num.n, games }, next: closePos };
+}
+
+function parseTournamentBlock(s: string, i: number): { tournament: TournamentAst; next: number } {
+  let j = skipWsAndComments(s, i);
+  if (!s.slice(j, j + 10).toLowerCase().startsWith("tournament")) {
+    throw new Error(`Expected tournament at ${j}`);
+  }
+  j += 10;
+  j = skipWsAndComments(s, j);
+  const id = readIdentifier(s, j);
+  if (!id) throw new Error("tournament requires a mode: all | race");
+  const mode = id.id.toLowerCase();
+  if (mode !== "all" && mode !== "race") {
+    throw new Error(`tournament mode must be all | race, got ${id.id}`);
+  }
+  j = skipWsAndComments(s, id.next);
+  if (s[j] !== "{") throw new Error(`Expected { after tournament ${mode}`);
+  const { inner, closePos } = readBalancedBlock(s, j);
+  const games = parseGameSequenceInner(inner);
+  if (games.length < 1) {
+    throw new Error("tournament requires at least one game block");
+  }
+  return {
+    tournament: { kind: "tournament", mode: mode as "all" | "race", games },
+    next: closePos,
+  };
 }
 
 export function parseDocument(source: string): TopLevel[] {
@@ -139,8 +176,8 @@ export function parseDocument(source: string): TopLevel[] {
   let i = skipWsAndComments(s, 0);
   if (i >= s.length) return out;
 
-  const head = s.slice(i, i + 5).toLowerCase();
-  if (!head.startsWith("match") && !head.startsWith("game")) {
+  const head = s.slice(i, i + 10).toLowerCase();
+  if (!head.startsWith("match") && !head.startsWith("game") && !head.startsWith("tournament")) {
     out.push({ kind: "implicit", body: s.slice(i) });
     return out;
   }
@@ -148,6 +185,12 @@ export function parseDocument(source: string): TopLevel[] {
   while (i < s.length) {
     i = skipWsAndComments(s, i);
     if (i >= s.length) break;
+    if (s.slice(i, i + 10).toLowerCase().startsWith("tournament")) {
+      const { tournament, next } = parseTournamentBlock(s, i);
+      out.push(tournament);
+      i = next;
+      continue;
+    }
     if (s.slice(i, i + 5).toLowerCase().startsWith("match")) {
       const { match, next } = parseMatchBlock(s, i);
       out.push(match);
@@ -206,7 +249,8 @@ export function tokenizeGameBody(body: string): BodyToken[] {
       if (tok.startsWith("{")) {
         tokens.push({ kind: "directive", text: tok.slice(1, -1).trim() });
       } else {
-        tokens.push({ kind: "move", raw: tok });
+        const p = parseMoveToken(tok);
+        tokens.push({ kind: "move", raw: p.core });
       }
     }
   }

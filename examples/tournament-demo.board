@@ -1,0 +1,13 @@
+# Parallel branches: each game runs in its own worker (isolated board, memory, registers).
+# Join mode `all` waits for every branch, prints captured stdout in game order, then sums `{return}` values (like match).
+
+tournament all {
+  game {
+    {let a 10}
+    {return reg a}
+  }
+  game {
+    {let a 20}
+    {return reg a}
+  }
+}

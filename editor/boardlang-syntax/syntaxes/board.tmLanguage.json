@@ -57,7 +57,7 @@
     },
     "keywords": {
       "name": "keyword.control.board",
-      "match": "(?i)\\b(game|match)\\b"
+      "match": "(?i)\\b(game|match|tournament|all|race)\\b"
     },
     "braceDirective": {
       "name": "meta.directive.board",
@@ -66,7 +66,7 @@
       "beginCaptures": { "0": { "name": "punctuation.definition.directive.begin.board" } },
       "endCaptures": { "0": { "name": "punctuation.definition.directive.end.board" } },
       "patterns": [
-        { "name": "support.function.directive.board", "match": "(?i)\\b(say|fen|pgn|trace|return|assert|set|read|let|inc|dec|add|sayreg|include|library)\\b" },
+        { "name": "support.function.directive.board", "match": "(?i)\\b(say|fen|pgn|trace|return|assert|set|read|let|inc|dec|add|sayreg|include|library|resign|variant)\\b" },
         { "name": "constant.other.square.board", "match": "\\b[a-h][1-8]\\b" }
       ]
     },

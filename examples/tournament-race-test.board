@@ -1,0 +1,10 @@
+tournament race {
+  game {
+    {let x 5}
+    {return reg x}
+  }
+  game {
+    {let x 5}
+    {return reg x}
+  }
+}

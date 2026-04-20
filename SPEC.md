@@ -26,11 +26,22 @@ C = \langle \mathit{ch},\ \mathit{mem},\ \mathit{regs},\ \mathit{pc},\ \sigma \r
 
 - **FEN token** — If `fenSeen` is false, `chess.load(fen)`; set `fenSeen`. If already true, **error**.
 - **PGN header token** — `chess.setHeader(key, value)`.
-- **Directive** — Dispatch on first word (say, fen, pgn, trace, return, assert, set, read, let, inc, dec, add, sayreg, include, library). Side effects update `mem`, `regs`, `σ`, or stdout. **`return`** builds a terminal value and **stops** the game configuration (no further tokens in that game).
+- **Statement** — Includes moves, `FEN`, PGN tags, directives, and control: **`if` / `else`**, **`while`**, **`for`**, **`break`**, **`continue`**. Conditions are evaluated from an expression AST over `ch`, `mem`, and `regs`.
+- **Directive** — Dispatch on first word (say, fen, pgn, trace, return, assert, set, read, let, inc, dec, add, sayreg, include, library). Side effects update `mem`, `regs`, `σ`, or stdout. **`return`** builds a terminal value and **stops** the game configuration (no further statements in that game).
 - **Include / library** — Push file onto include stack; read and **preprocess** text; parse tokens; recurse the same transition relation; pop stack and restore `baseDir` on exit. **`return` inside include** propagates as end-of-outer-game.
 - **Move token** — Let \(m = \mathit{chess.move}(\mathit{tok})\). If illegal, **error**. Else update `mem` with the rules in DOCUMENTATION §8 (quiet, capture, en passant, castling). If trace on, append trace line to stdout (unless `quiet`).
 
 **Match** semantics: run a sequence of games; each game gets a **fresh** \(C_0\). If any game ends in a **`return`**, sum those values and print one line.
+
+**Tournament** semantics: **`tournament all`** runs each nested **`game`** in a **worker thread** (real parallelism) with its own \(C_0\); **`{read}`** is forbidden there. When all finish, print captured stdout from branches in order, then the same **sum-of-returns** rule as a match. **`tournament race`** takes the first branch to complete and cancels the others; print that branch’s output and optional single return value. **`tournament`** may appear inside a **`game`** body (same rules).
+
+**Nested `game`:** before running the inner statement list, copy \(σ\), `mem`, `regs`, headers, trace flags, resign flag, and variant into a working configuration; on normal completion **restore** the saved outer configuration. **`return`** from the inner list propagates without restoring.
+
+**`{resign}`:** records the side to move as having resigned; position is terminal for **`gameover`** / **`return outcome`** without applying a chess.js terminal position.
+
+**Move annotations:** optional **`$n`** NAG and **`!!` `??` …** suffixes on move tokens; **`!!`** and selected NAGs may **assert** that the side to move is in check after the move.
+
+**`{variant …}`:** sets a profile flag and PGN **`Variant`** header for **`chess960`** / clears it for **`standard`** (FEN still defines the array).
 
 ---
 
@@ -38,9 +49,9 @@ C = \langle \mathit{ch},\ \mathit{mem},\ \mathit{regs},\ \mathit{pc},\ \sigma \r
 
 Stdout is the concatenation (in order) of:
 
-- Lines from `{say}`, `{fen}`, `{pgn}`, `{sayreg}`, trace lines, and numeric **`return`** / **match** lines, subject to **`quiet`** suppressing everything except **`return`** and **match** sums (as implemented).
+- Lines from `{say}`, `{fen}`, `{pgn}`, `{sayreg}`, trace lines, and numeric **`return`** / **`match`** / **`tournament`** lines, subject to **`quiet`** suppressing everything except **`return`** and **`match` / `tournament`** aggregates (as implemented).
 
-Stderr is unused on success; errors throw through Node.
+On failure the reference CLI prints the error **message** to stderr and exits with code **1** (no stack trace by default).
 
 ---
 

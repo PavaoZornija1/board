@@ -1,0 +1,3 @@
+# `{variant chess960}` sets the PGN Variant header (use a Chess960 FEN when you need a non-standard start).
+{variant chess960}
+{pgn}

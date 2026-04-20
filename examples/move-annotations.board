@@ -1,0 +1,3 @@
+# `!!` after SAN requires the move to give check. `$3` is a “brilliant” NAG (same check rule).
+e4 e5 Qh5 Nc6 Bc4 Nf6 Qxf7$3
+{return outcome}

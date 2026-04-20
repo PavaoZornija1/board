@@ -1,0 +1,4 @@
+# `{resign}` ends the side-to-move’s participation; `{return outcome}` follows mate-style scoring.
+e4 e5
+{resign}
+{return outcome}

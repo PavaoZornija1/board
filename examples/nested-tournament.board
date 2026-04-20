@@ -1,0 +1,13 @@
+# `tournament` may appear inside a `game` body (runs workers from the main thread or from a worker).
+game {
+  tournament all {
+    game {
+      {let n 5}
+      {return reg n}
+    }
+    game {
+      {let n 7}
+      {return reg n}
+    }
+  }
+}
