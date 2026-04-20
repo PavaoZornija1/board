@@ -1,0 +1,4 @@
+game {
+  {read e4}
+  say e4
+}

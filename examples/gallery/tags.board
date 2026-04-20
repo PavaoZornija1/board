@@ -1,0 +1,6 @@
+game {
+  [Event "Gallery demo"]
+  [Site "BoardLang"]
+  e4 e5
+  {pgn}
+}

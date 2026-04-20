@@ -1,0 +1,5 @@
+# Match sums `{return ...}` values from each game (only games that return count)
+match 2 {
+  game { e4 e5 Qh5 Nc6 Bc4 Nf6 Qxf7# {return outcome} }
+  game { e4 {return material} }
+}

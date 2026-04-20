@@ -1,0 +1,28 @@
+{
+  "name": "boardlang-syntax",
+  "displayName": "BoardLang",
+  "description": "Syntax highlighting for .board (BoardLang) files",
+  "version": "0.0.1",
+  "publisher": "boardlang",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "board",
+        "aliases": ["BoardLang", "board"],
+        "extensions": [".board"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "board",
+        "scopeName": "source.board",
+        "path": "./syntaxes/board.tmLanguage.json"
+      }
+    ]
+  }
+}

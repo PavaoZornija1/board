@@ -1,0 +1,20 @@
+{
+  "name": "board-lang",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "board-lang": "bin/board-lang.mjs"
+  },
+  "scripts": {
+    "run": "node --experimental-strip-types src/cli.ts",
+    "check": "node --experimental-strip-types --check src/cli.ts",
+    "test": "node --test tests/*.mjs"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0"
+  }
+}

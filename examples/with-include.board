@@ -1,0 +1,7 @@
+# Snippet is plain movetext; continues in this game
+game {
+  include "snippet-sicilian.board"
+  Nf3 d6
+  {say e4}
+  {say c5}
+}

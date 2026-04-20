@@ -1,0 +1,8 @@
+game {
+  {let n 0}
+  e4 e5 Nf3 Nc6 Bc4
+  {inc n}
+  {inc n}
+  {inc n}
+  {sayreg n}
+}

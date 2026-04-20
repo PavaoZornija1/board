@@ -1,0 +1,5 @@
+# Two mini-games in one match
+match 2 {
+  game { e4 e5 Nf3 Nc6 Bb5 }
+  game { d4 d5 c4 }
+}

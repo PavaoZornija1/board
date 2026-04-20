@@ -1,0 +1,86 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "BoardLang",
+  "scopeName": "source.board",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#pgnTag" },
+    { "include": "#fenLine" },
+    { "include": "#includeLine" },
+    { "include": "#libraryLine" },
+    { "include": "#sayLine" },
+    { "include": "#keywords" },
+    { "include": "#braceDirective" },
+    { "include": "#strings" },
+    { "include": "#castles" },
+    { "include": "#move" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.number-sign.board",
+      "match": "(?:^|\\s)#.*$"
+    },
+    "pgnTag": {
+      "name": "meta.tag.board",
+      "begin": "^\\s*\\[",
+      "end": "\\]\\s*$",
+      "patterns": [
+        { "name": "entity.name.tag.board", "match": "[A-Za-z0-9_]+" },
+        { "name": "punctuation.definition.string.begin.board", "match": "\"" },
+        { "name": "string.quoted.double.board", "match": "([^\"\\\\]|\\\\.)*" },
+        { "name": "punctuation.definition.string.end.board", "match": "\"" }
+      ]
+    },
+    "fenLine": {
+      "name": "meta.fen.board",
+      "begin": "(?i)^\\s*FEN\\s+",
+      "end": "$",
+      "patterns": [{ "name": "string.quoted.double.board", "match": "\"([^\"]*)\"" }]
+    },
+    "includeLine": {
+      "name": "keyword.control.import.board",
+      "match": "(?i)^\\s*(include)\\s+\"[^\"]*\"\\s*$",
+      "captures": { "1": { "name": "keyword.control.import.board" } }
+    },
+    "libraryLine": {
+      "name": "keyword.control.import.board",
+      "match": "(?i)^\\s*(library)\\s+",
+      "captures": { "1": { "name": "keyword.control.import.board" } }
+    },
+    "sayLine": {
+      "name": "support.function.board",
+      "match": "(?i)^\\s*(say)\\s+([a-h][1-8])\\s*$",
+      "captures": {
+        "1": { "name": "support.function.board" },
+        "2": { "name": "constant.other.square.board" }
+      }
+    },
+    "keywords": {
+      "name": "keyword.control.board",
+      "match": "(?i)\\b(game|match)\\b"
+    },
+    "braceDirective": {
+      "name": "meta.directive.board",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": { "0": { "name": "punctuation.definition.directive.begin.board" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.directive.end.board" } },
+      "patterns": [
+        { "name": "support.function.directive.board", "match": "(?i)\\b(say|fen|pgn|trace|return|assert|set|read|let|inc|dec|add|sayreg|include|library)\\b" },
+        { "name": "constant.other.square.board", "match": "\\b[a-h][1-8]\\b" }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.board",
+      "match": "\"([^\"]*)\""
+    },
+    "castles": {
+      "name": "constant.language.castling.board",
+      "match": "O-O-O|O-O"
+    },
+    "move": {
+      "name": "string.unquoted.move.board",
+      "match": "\\b[a-h][1-8][a-h][1-8][qrbnQRBN]?\\b|\\b[NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](?:=[NBRQ])?[+#]*\\b"
+    }
+  }
+}

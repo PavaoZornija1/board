@@ -1,0 +1,5 @@
+game {
+  library sicilian
+  Nf3 d6
+  {say e4}
+}

@@ -1,0 +1,4 @@
+# Implicit single game: SAN movetext + say
+e4 e6
+say e4
+say e6

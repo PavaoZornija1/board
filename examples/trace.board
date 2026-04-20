@@ -1,0 +1,6 @@
+game {
+  {trace fen}
+  e4 e5 Nf3
+  {trace off}
+  {say e4}
+}
